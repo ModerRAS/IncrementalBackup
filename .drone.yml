@@ -1,0 +1,14 @@
+﻿kind: pipeline
+type: docker
+name: build
+steps:
+- name: build
+  image: mcr.microsoft.com/dotnet/core/sdk:3.1
+  pull: if-not-exists # always never
+  commands:
+    - dotnet restore
+    - dotnet publish -r linux-x64 -c Release -o /cache/out
+trigger:
+  branch:
+  - dev
+  - master

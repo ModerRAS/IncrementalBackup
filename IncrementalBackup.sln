@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30011.22
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IncrementalBackup", "IncrementalBackup.csproj", "{624137F6-B053-4355-9ADE-0B118DFE7D8A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{624137F6-B053-4355-9ADE-0B118DFE7D8A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{624137F6-B053-4355-9ADE-0B118DFE7D8A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{624137F6-B053-4355-9ADE-0B118DFE7D8A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{624137F6-B053-4355-9ADE-0B118DFE7D8A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {CA67E5F5-CF07-4191-A411-19B458DE3A81}
+	EndGlobalSection
+EndGlobal
