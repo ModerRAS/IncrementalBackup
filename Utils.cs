@@ -68,7 +68,7 @@ namespace IncrementalBackup {
         /// <param name="From">File path, use '/', like c:/a/b/c.txt</param>
         /// <param name="To">File path, use '/', link d:/a/v/c/d/e.txt</param>
         /// <returns></returns>
-        public static void CopyFileAsync(string From, string To, bool Overwrite = false) {
+        public static void CopyFile(string From, string To, bool Overwrite = false) {
             //From and To must be a file path, and must use '/' to split 
             var tmp = To.Split('/');
             var FolderPath = new StringBuilder();

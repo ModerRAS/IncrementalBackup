@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using RocksDbSharp;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -11,31 +12,31 @@ namespace IncrementalBackup {
     class Startup {
         private readonly RocksDb db;
         private readonly string TimeNow;
-        private readonly Dictionary<string, string> ToCopy;
+        private readonly ConcurrentDictionary<string, string> ToCopy;
         private readonly List<string> ToDelete;
-        private readonly Dictionary<string, bool> All;
+        private readonly ConcurrentDictionary<string, bool> All;
         public Startup(string DatabasePath) {
             Utils.CreateDirectorys(DatabasePath);
             db = RocksDb.Open(new DbOptions().SetCreateIfMissing(), DatabasePath);
             TimeNow = DateTime.Now.ToString("yyyyMMddHHmmss");
-            ToCopy = new Dictionary<string, string>();
+            ToCopy = new ConcurrentDictionary<string, string>();
             ToDelete = new List<string>();
-            All = new Dictionary<string, bool>();
+            All = new ConcurrentDictionary<string, bool>();
         }
 
         public async Task<bool> Backup(string BackupFromPath, string BackupToPath) {
             try {
                 var AllFiles = Utils.GetAllFiles(BackupFromPath);
-                //Parallel.ForEach(AllFiles, (i) => {
-                foreach (var i in AllFiles) {
-                    All.Add(i.Substring(BackupFromPath.Length), true);
+                Parallel.ForEach(AllFiles, (i) => {
+                    //foreach (var i in AllFiles) {
+                    All.GetOrAdd(i.Substring(BackupFromPath.Length), true);
                     var FileInfoInDb = db.Get(i.Substring(BackupFromPath.Length));
                     var FileHashInfoInFolder = Utils.GetFileHash(i);
                     if (string.IsNullOrEmpty(FileInfoInDb) ||
                         !FileHashInfoInFolder.Equals(JsonConvert.DeserializeObject<Data>(FileInfoInDb).Hash)) {
-                        ToCopy.Add(i, FileHashInfoInFolder);
+                        ToCopy.GetOrAdd(i, FileHashInfoInFolder);
                     }
-                }
+                });
 
                 var iter = db.NewIterator();
                 iter.SeekToFirst();
@@ -57,7 +58,7 @@ namespace IncrementalBackup {
                 Parallel.ForEach(ToCopy, (i) => {
                     //TargetPath  是一个绝对路径
                     var TargetPath = $"{BackupPathWithTime}{i.Key.Substring(BackupFromPath.Length)}";
-                    Utils.CopyFileAsync(i.Key, TargetPath);
+                    Utils.CopyFile(i.Key, TargetPath);
                     var data = new Data() {
                         Path = TargetPath,
                         Hash = i.Value
@@ -82,7 +83,7 @@ namespace IncrementalBackup {
                 dict.Add(iter.StringKey(), JsonConvert.DeserializeObject<Data>(iter.StringValue()));
             } while (iter.Next().Valid());
 
-            Parallel.ForEach(dict, (i) => Utils.CopyFileAsync(i.Value.Path, $"{RollbackToPath}{i.Key}", true));
+            Parallel.ForEach(dict, (i) => Utils.CopyFile(i.Value.Path, $"{RollbackToPath}{i.Key}", true));
             
             return true;
         }
