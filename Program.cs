@@ -22,15 +22,20 @@ IB clean d:/data
 ";
 
         static async Task Main(string[] args) {
+            var Before = DateTime.Now;
             if (args.Length != 3) {
                 Console.WriteLine(Help);
             } else {
                 switch (args[0].ToLower()) {
                     case "backup":
                         await new Startup($"{Utils.ConvertPath(args[2])}/Data").Backup(Utils.ConvertPath(args[1]), Utils.ConvertPath(args[2]));
+                        var After = DateTime.Now;
+                        Console.WriteLine($"备份完成！\n共耗时: {After - Before}");
                         break;
                     case "rollback":
                         await new Startup($"{Utils.ConvertPath(args[1])}/Data").Rollback(Utils.ConvertPath(args[2]));
+                        After = DateTime.Now;
+                        Console.WriteLine($"回滚完成！\n共耗时: {After - Before}");
                         break;
                     default:
                         break;
