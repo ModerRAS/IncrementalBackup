@@ -12,14 +12,14 @@ namespace IncrementalBackup {
     class Startup {
         private readonly RocksDb db;
         private readonly string TimeNow;
-        private readonly ConcurrentDictionary<string, string> ToCopy;
+        private readonly ConcurrentDictionary<string, DateTime> ToCopy;
         private readonly List<string> ToDelete;
         private readonly ConcurrentDictionary<string, bool> All;
         public Startup(string DatabasePath) {
             Utils.CreateDirectorys(DatabasePath);
             db = RocksDb.Open(new DbOptions().SetCreateIfMissing(), DatabasePath);
             TimeNow = DateTime.Now.ToString("yyyyMMddHHmmss");
-            ToCopy = new ConcurrentDictionary<string, string>();
+            ToCopy = new ConcurrentDictionary<string, DateTime>();
             ToDelete = new List<string>();
             All = new ConcurrentDictionary<string, bool>();
         }
@@ -31,9 +31,9 @@ namespace IncrementalBackup {
                     //foreach (var i in AllFiles) {
                     All.GetOrAdd(i.Substring(BackupFromPath.Length), true);
                     var FileInfoInDb = db.Get(i.Substring(BackupFromPath.Length));
-                    var FileHashInfoInFolder = Utils.GetFileHash(i);
+                    var FileHashInfoInFolder = File.GetLastWriteTimeUtc(i);
                     if (string.IsNullOrEmpty(FileInfoInDb) ||
-                        !FileHashInfoInFolder.Equals(JsonConvert.DeserializeObject<Data>(FileInfoInDb).Hash)) {
+                        !FileHashInfoInFolder.Equals(JsonConvert.DeserializeObject<Data>(FileInfoInDb).LastModified)) {
                         ToCopy.GetOrAdd(i, FileHashInfoInFolder);
                     }
                 });
@@ -61,7 +61,7 @@ namespace IncrementalBackup {
                     Utils.CopyFile(i.Key, TargetPath);
                     var data = new Data() {
                         Path = TargetPath,
-                        Hash = i.Value
+                        LastModified = i.Value
                     };
                     //数据库的Key是个相对路径, 而且第一个字符是个'/', 提取时需要在前面加一个没有斜线的RootPath
                     db.Put(i.Key.Substring(BackupFromPath.Length), JsonConvert.SerializeObject(data));

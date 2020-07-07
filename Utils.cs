@@ -45,6 +45,8 @@ namespace IncrementalBackup {
             
         }
 
+        public static string GetFileLastModified(string file) => File.GetLastWriteTimeUtc(file).ToString();
+
         public static bool CreateDirectorys(string FolderPath) {
             try {
                 var FolderPaths = FolderPath.Split('/');
