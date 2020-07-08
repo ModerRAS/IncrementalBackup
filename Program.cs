@@ -14,11 +14,6 @@ IB backup d:/from d:/to
 回滚：
 IB rollback d:/from d:/to
 两个都应该是绝对路径，且最后无'/'， 第一个是上文备份至文件目录，第二个是回滚至文件目录
-
-清理备份目录
-IB clean d:/data
-未实现
-这一个也是绝对路径，且最后无'/'，此功能是清空除了上一个版本的所有数据之外的其他数据
 ";
 
         static async Task Main(string[] args) {

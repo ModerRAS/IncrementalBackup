@@ -36,16 +36,6 @@ namespace IncrementalBackup {
                 }
             }
         }
-        public static string GetFileHash(string file) {
-            using (var Hash = SHA256.Create()) {
-                using (var stream = File.OpenRead(file)) {
-                    return Convert.ToBase64String(Hash.ComputeHash(stream));
-                }
-            }
-            
-        }
-
-        public static string GetFileLastModified(string file) => File.GetLastWriteTimeUtc(file).ToString();
 
         public static bool CreateDirectorys(string FolderPath) {
             try {
