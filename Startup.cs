@@ -47,10 +47,6 @@ namespace IncrementalBackup {
                 }
                 
 
-                foreach(var i in ToDelete) {
-                    db.Remove(i);
-                }
-
                 var BackupPathWithTime = $"{BackupToPath}/Backup/{TimeNow}";
                 if (!Directory.Exists(BackupPathWithTime)) {
                     Directory.CreateDirectory(BackupPathWithTime);
@@ -66,6 +62,10 @@ namespace IncrementalBackup {
                     //数据库的Key是个相对路径, 而且第一个字符是个'/', 提取时需要在前面加一个没有斜线的RootPath
                     db.Put(i.Key.Substring(BackupFromPath.Length), JsonConvert.SerializeObject(data));
                 });
+
+                foreach (var i in ToDelete) {
+                    db.Remove(i);
+                }
 
                 return true;
             } catch (Exception e) {
