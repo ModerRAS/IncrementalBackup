@@ -52,6 +52,16 @@ IB rebuild d:/database.json d:/database2.json d:/from d:/to
                         After = DateTime.Now;
                         Console.WriteLine($"检查完成！\n共耗时: {After - Before}");
                         break;
+                    case "diff":
+                        await new Startup($"{Utils.ConvertPath(args[1])}").Diff($"{Utils.ConvertPath(args[2])}");
+                        After = DateTime.Now;
+                        Console.WriteLine($"比对完成！\n共耗时: {After - Before}");
+                        break;
+                    case "cdp":
+                        await new Startup($"{Utils.ConvertPath(args[1])}").CheckForDuplicate();
+                        After = DateTime.Now;
+                        Console.WriteLine($"检查重复完成！\n共耗时: {After - Before}");
+                        break;
                     case "rebuild":
                         if (args.Length == 5) {
                             await new Startup($"{Utils.ConvertPath(args[1])}").ReBuild($"{Utils.ConvertPath(args[2])}", $"{Utils.ConvertPath(args[3])}", $"{Utils.ConvertPath(args[4])}");
@@ -60,7 +70,7 @@ IB rebuild d:/database.json d:/database2.json d:/from d:/to
                             await new Startup($"{Utils.ConvertPath(args[1])}").ReBuild($"{Utils.ConvertPath(args[2])}", $"{Utils.ConvertPath(args[3])}", $"{Utils.ConvertPath(args[4])}");
                         }
                         After = DateTime.Now;
-                        Console.WriteLine($"检查完成！\n共耗时: {After - Before}");
+                        Console.WriteLine($"重建完成！\n共耗时: {After - Before}");
                         break;
                     default:
                         break;

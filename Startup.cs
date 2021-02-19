@@ -103,6 +103,20 @@ namespace IncrementalBackup {
             }
         }
 
+        public async Task<bool> CheckForDuplicate() {
+            ConcurrentDictionary<string, Data> SourceDb = new ConcurrentDictionary<string, Data>();
+            foreach (var e in db) {
+                Data value;
+                if (SourceDb.TryGetValue(e.Key, out value)) {
+                    Console.WriteLine($"重复文件: {value.Path}");
+                } else {
+                    SourceDb.TryAdd(e.Value.Hash, e.Value);
+                }
+                
+            }
+            return true;
+        }
+
         public async Task<bool> Diff(string ToDiffDbPath) {
             //hash,Data
             ConcurrentDictionary<string, Data> ToDiffDb = new ConcurrentDictionary<string, Data>(); 
