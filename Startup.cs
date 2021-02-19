@@ -1,23 +1,27 @@
 ﻿using Newtonsoft.Json;
-using RocksDbSharp;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace IncrementalBackup {
     class Startup {
-        private readonly RocksDb db;
+        private readonly ConcurrentDictionary<string, Data> db;
         private readonly string TimeNow;
         private readonly ConcurrentDictionary<string, DateTime> ToCopy;
         private readonly List<string> ToDelete;
         private readonly ConcurrentDictionary<string, bool> All;
+        private readonly string DatabasePath;
         public Startup(string DatabasePath) {
-            Utils.CreateDirectorys(DatabasePath);
-            db = RocksDb.Open(new DbOptions().SetCreateIfMissing(), DatabasePath);
+            if (File.Exists(DatabasePath)) {
+                db = JsonConvert.DeserializeObject<ConcurrentDictionary<string, Data>>(File.ReadAllText(DatabasePath));
+            } else {
+                Utils.CreateDirectorys(Utils.GetFolderPath(DatabasePath));
+                db = new ConcurrentDictionary<string, Data>();
+            }
+
+            this.DatabasePath = DatabasePath;
             TimeNow = DateTime.Now.ToString("yyyyMMddHHmmss");
             ToCopy = new ConcurrentDictionary<string, DateTime>();
             ToDelete = new List<string>();
@@ -30,20 +34,17 @@ namespace IncrementalBackup {
                 Parallel.ForEach(AllFiles, (i) => {
                     //foreach (var i in AllFiles) {
                     All.GetOrAdd(i.Substring(BackupFromPath.Length), true);
-                    var FileInfoInDb = db.Get(i.Substring(BackupFromPath.Length));
+                    Data FileInfoInDb;
+                    var isFileInfoInDb = db.TryGetValue(i.Substring(BackupFromPath.Length), out FileInfoInDb);
                     var FileHashInfoInFolder = File.GetLastWriteTimeUtc(i);
-                    if (string.IsNullOrEmpty(FileInfoInDb) ||
-                        !FileHashInfoInFolder.Equals(JsonConvert.DeserializeObject<Data>(FileInfoInDb).LastModified)) {
+                    if (isFileInfoInDb ||
+                        !FileHashInfoInFolder.Equals(FileInfoInDb.LastModified)) {
                         ToCopy.GetOrAdd(i, FileHashInfoInFolder);
                     }
                 });
 
-                var iter = db.NewIterator();
-                iter.SeekToFirst();
-                if (iter.Valid()) {
-                    do {
-                        if (!All.ContainsKey(iter.StringKey())) ToDelete.Add(iter.StringKey());
-                    } while (iter.Next().Valid());
+                foreach (var e in db) {
+                    if (!All.ContainsKey(e.Key)) ToDelete.Add(e.Key);
                 }
                 
 
@@ -57,15 +58,43 @@ namespace IncrementalBackup {
                     Utils.CopyFile(i.Key, TargetPath);
                     var data = new Data() {
                         Path = TargetPath,
+                        Hash = string.Empty,
                         LastModified = i.Value
                     };
                     //数据库的Key是个相对路径, 而且第一个字符是个'/', 提取时需要在前面加一个没有斜线的RootPath
-                    db.Put(i.Key.Substring(BackupFromPath.Length), JsonConvert.SerializeObject(data));
+                    var isAdded = db.TryAdd(i.Key.Substring(BackupFromPath.Length), data);
                 });
 
                 foreach (var i in ToDelete) {
-                    db.Remove(i);
+                    Data value;
+                    db.TryRemove(i, out value);
                 }
+                File.WriteAllText(DatabasePath, JsonConvert.SerializeObject(db));
+                return true;
+            } catch (Exception e) {
+                Console.WriteLine(e);
+                return false;
+            }
+        }
+
+        public async Task<bool> Check(string SourcePath) {
+            try {
+                var AllFiles = Utils.GetAllFiles(SourcePath);
+                foreach (var i in AllFiles) {
+                        //foreach (var i in AllFiles) {
+                        //All.GetOrAdd(i.Substring(SourcePath.Length), true);
+                        Data FileInfoInDb = new Data() {
+                            Path = i.Substring(SourcePath.Length, i.Length - SourcePath.Length),
+                            Hash = Utils.GetFileHash(i),
+                            LastModified = File.GetLastWriteTimeUtc(i)
+                        };
+                        var isAdded = db.TryAdd(i.Substring(SourcePath.Length, i.Length - SourcePath.Length), FileInfoInDb);
+                        if (!isAdded) {
+                            throw new Exception($"文件: {i} 无法添加");
+                        }
+                }
+
+                File.WriteAllText(DatabasePath, JsonConvert.SerializeObject(db));
 
                 return true;
             } catch (Exception e) {
@@ -74,17 +103,86 @@ namespace IncrementalBackup {
             }
         }
 
+        public async Task<bool> Diff(string ToDiffDbPath) {
+            //hash,Data
+            ConcurrentDictionary<string, Data> ToDiffDb = new ConcurrentDictionary<string, Data>(); 
+            ConcurrentDictionary<string, Data> SourceDb = new ConcurrentDictionary<string, Data>();
+            foreach (var e in db) {
+                SourceDb.TryAdd(e.Value.Hash, e.Value);
+            }
+            foreach (var e in JsonConvert.DeserializeObject<ConcurrentDictionary<string, Data>>(File.ReadAllText(ToDiffDbPath))) {
+                ToDiffDb.TryAdd(e.Value.Hash, e.Value);
+            }
+            foreach (var e in SourceDb) {
+                if (ToDiffDb.ContainsKey(e.Key)) {
+
+                } else {
+                    Console.WriteLine($"缺少文件: {e.Value.Path}");
+                }
+            }
+            return true;
+        }
+
+        public async Task<bool> ReBuild(string ToDiffDbPath, string SourcePath, string TargetPath) {
+            //hash,Data
+            ConcurrentDictionary<string, Data> ToDiffDb = new ConcurrentDictionary<string, Data>();
+            ConcurrentDictionary<string, Data> SourceDb = new ConcurrentDictionary<string, Data>();
+            foreach (var e in db) {
+                SourceDb.TryAdd(e.Value.Hash, e.Value);
+            }
+            foreach (var e in JsonConvert.DeserializeObject<ConcurrentDictionary<string, Data>>(File.ReadAllText(ToDiffDbPath))) {
+                ToDiffDb.TryAdd(e.Value.Hash, e.Value);
+            }
+            Console.WriteLine("开始重建！");
+            foreach (var e in SourceDb) {
+                if (ToDiffDb.ContainsKey(e.Key)) {
+                    Data ToDiffDbValue;
+                    if (ToDiffDb.TryGetValue(e.Key, out ToDiffDbValue)) {
+                        Utils.MoveFile($"{SourcePath}{ToDiffDbValue.Path}", $"{TargetPath}{e.Value.Path}");
+                    }
+                } else {
+                    Console.WriteLine($"缺少文件: {e.Value.Path}");
+                }
+            }
+
+
+            return true;
+        }
+
+        public async Task<bool> ReBuild(string SourcePath, string TargetPath) {
+            //hash,Data
+            Dictionary<string, Data> SourceDb = new Dictionary<string, Data>();
+            foreach (var e in db) {
+                SourceDb.Add(e.Value.Hash, e.Value);
+            }
+            try {
+                Console.WriteLine("开始重建！");
+                var AllFiles = Utils.GetAllFiles(SourcePath);
+                foreach (var i in AllFiles) {
+                    Data FileInfoInDb = new Data() {
+                        Path = i.Substring(SourcePath.Length, i.Length - SourcePath.Length),
+                        Hash = Utils.GetFileHash(i),
+                        LastModified = File.GetLastWriteTimeUtc(i)
+                    };
+
+                    Utils.MoveFile($"{SourcePath}{FileInfoInDb.Path}", $"{TargetPath}{SourceDb[FileInfoInDb.Hash].Path}");
+                    
+                }
+
+                return true;
+            } catch (Exception e) {
+                Console.WriteLine(e);
+                return false;
+            }
+            throw new NotImplementedException();
+            return false;
+        }
+
         public async Task<bool> Rollback(string RollbackToPath) {
             //这两个Path的最后都不能有斜线
-            var iter = db.NewIterator();
-            iter.SeekToFirst();
-            var dict = new Dictionary<string, Data>();
-            do {
-                dict.Add(iter.StringKey(), JsonConvert.DeserializeObject<Data>(iter.StringValue()));
-            } while (iter.Next().Valid());
-
-            Parallel.ForEach(dict, (i) => Utils.CopyFile(i.Value.Path, $"{RollbackToPath}{i.Key}", true));
             
+
+            Parallel.ForEach(db, (i) => Utils.CopyFile(i.Value.Path, $"{RollbackToPath}{i.Key}", true));
             return true;
         }
         public bool Clean(string CleanPath) {

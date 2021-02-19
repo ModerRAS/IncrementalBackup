@@ -36,7 +36,14 @@ namespace IncrementalBackup {
                 }
             }
         }
+        public static string GetFileHash(string file) {
+            using (var Hash = SHA256.Create()) {
+                using (var stream = File.OpenRead(file)) {
+                    return Convert.ToBase64String(Hash.ComputeHash(stream));
+                }
+            }
 
+        }
         public static bool CreateDirectorys(string FolderPath) {
             try {
                 var FolderPaths = FolderPath.Split('/');
@@ -62,16 +69,22 @@ namespace IncrementalBackup {
         /// <returns></returns>
         public static void CopyFile(string From, string To, bool Overwrite = false) {
             //From and To must be a file path, and must use '/' to split 
-            var tmp = To.Split('/');
-            var FolderPath = new StringBuilder();
-            for (var i = 0; i < tmp.Length - 1; i++) {
-                FolderPath.Append(tmp[i]);
-                FolderPath.Append("/");
-            }
-            CreateDirectorys(FolderPath.ToString());
+            CreateDirectorys($"{GetFolderPath(To)}/"); 
             File.Copy(From, To, Overwrite);
         }
-        
+
+        /// <summary>
+        /// From和To都得是以正斜杠隔开的文件名
+        /// </summary>
+        /// <param name="From">File path, use '/', like c:/a/b/c.txt</param>
+        /// <param name="To">File path, use '/', link d:/a/v/c/d/e.txt</param>
+        /// <returns></returns>
+        public static void MoveFile(string From, string To, bool Overwrite = false) {
+            //From and To must be a file path, and must use '/' to split 
+            CreateDirectorys($"{GetFolderPath(To)}/");
+            File.Move(From, To, Overwrite);
+        }
+
         public static string ConvertPath(string path) {
             var tmp = string.Join("/", path.Split('\\'));
             if (tmp.EndsWith('/')) {
@@ -79,6 +92,13 @@ namespace IncrementalBackup {
             } else {
                 return tmp.Trim();
             }
+        }
+        public static string GetFolderPath(string path) {
+            var tmp = path.Split('/').ToList();
+            var Count = tmp.Count;
+            tmp.RemoveAt(Count - 1);
+            return string.Join('/', tmp);
+
         }
     }
 }
