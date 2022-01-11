@@ -3,7 +3,7 @@ type: docker
 name: build
 steps:
 - name: build
-  image: mcr.microsoft.com/dotnet/core/sdk:3.1
+  image: mcr.microsoft.com/dotnet/sdk:5.0
   pull: if-not-exists # always never
   commands:
     - dotnet restore
